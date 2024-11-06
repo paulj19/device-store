@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -22,45 +24,10 @@ var repository Repository
 
 func main() {
 	initDB()
-	http.HandleFunc("/add-device", AddDeviceHandler)
+	http.HandleFunc("/device", CrudDeviceHandler)
 }
 
 func initDB() {
-
-	// dsn := "user:password@tcp(127.0.0.1:3306)/"
-
-	// // Connect to the MySQL server
-	// db, err := sql.Open("mysql", dsn)
-	// if err != nil {
-	// 	log.Fatalf("Error connecting to the database: %v", err)
-	// }
-	// Create the database
-	// _, err = db.Exec("CREATE DATABASE IF NOT EXISTS device_store")
-	// if err != nil {
-	// 	log.Fatalf("Error creating database: %v", err)
-	// }
-	// fmt.Println("Database created successfully")
-
-	// // Connect to the newly created database
-	// dsn = "user:password@tcp(127.0.0.1:3306)/device_store"
-	// db, err = sql.Open("mysql", dsn)
-	// if err != nil {
-	// 	log.Fatalf("Error connecting to the device_store database: %v", err)
-	// }
-
-	// // Create a table
-	// createTableSQL := `
-	// CREATE TABLE IF NOT EXISTS devices (
-	// id INT AUTO_INCREMENT NOT NULL PRIMARY KEY,
-	// name VARCHAR(100) NOT NULL,
-	// 			brand VARCHAR(100) NOT NULL,
-	// creation_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-	// );`
-	// _, err = db.Exec(createTableSQL)
-	// if err != nil {
-	// 	log.Fatalf("Error creating table: %v", err)
-	// }
-	// fmt.Println("Table created successfully")
 	dsn := "user:password@tcp(localhost:3306)/device_store"
 	db, err := sql.Open("mysql", dsn)
 
@@ -82,25 +49,51 @@ func initDB() {
 	}
 }
 
-func AddDeviceHandler(w http.ResponseWriter, r *http.Request) {
-	var newDevice Device
-	err := json.NewDecoder(r.Body).Decode(&newDevice)
+func CrudDeviceHandler(w http.ResponseWriter, r *http.Request) {
 
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+	switch r.Method {
+	case http.MethodGet:
+		id := r.URL.Query().Get("id")
+		deviceID, err := strconv.Atoi(id)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		device, err := repository.FindDeviceByID(deviceID)
+		if err != nil {
+			if strings.Contains(err.Error(), "no rows in result set") {
+				http.Error(w, fmt.Sprintf("Device with id %v not found", deviceID), http.StatusNotFound)
+				return
+			}
+			log.Println("Error finding device:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(device)
+	case http.MethodPost:
+		var newDevice Device
+		err := json.NewDecoder(r.Body).Decode(&newDevice)
+
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		newDevice, err = repository.SaveDevice(newDevice)
+
+		if err != nil {
+			log.Println("Error adding device:", err)
+			if strings.Contains(err.Error(), "Error 1062 (23000): Duplicate entry") {
+				http.Error(w, fmt.Sprintf("Device %v already exists", newDevice), http.StatusUnprocessableEntity)
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		log.Println("Device added:", newDevice)
+		w.WriteHeader(http.StatusCreated)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(newDevice)
 	}
-
-	fmt.Println("Request:")
-	newDevice, err = repository.SaveDevice(newDevice)
-
-	if err != nil {
-		log.Println("Error adding device:", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	log.Println("Device added:", newDevice)
-	w.WriteHeader(http.StatusCreated)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(newDevice)
 }

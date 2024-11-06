@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -15,8 +16,6 @@ type RepositoryImpl struct {
 }
 
 func (r RepositoryImpl) FindDeviceByID(id int) (Device, error) {
-	// query db for device with id
-
 	var creationTimeRaw []byte
 	query := "SELECT * FROM devices WHERE id = ?"
 	row := r.db.QueryRow(query, id)
@@ -24,6 +23,7 @@ func (r RepositoryImpl) FindDeviceByID(id int) (Device, error) {
 	err := row.Scan(&device.ID, &device.Name, &device.Brand, &creationTimeRaw)
 
 	if err != nil {
+		log.Println("Error scanning device", err)
 		return Device{}, err
 	}
 
@@ -35,17 +35,14 @@ func (r RepositoryImpl) FindDeviceByID(id int) (Device, error) {
 
 	device.CreationTime = creationTime
 	return device, nil
-
 }
 
 func (r RepositoryImpl) SaveDevice(device Device) (Device, error) {
-	// insert into db with creation time now
 	query := "INSERT INTO devices (name, brand, creation_time) VALUES (?, ?, NOW())"
 	result, err := r.db.Exec(query, device.Name, device.Brand)
 	if err != nil {
 		return Device{}, err
 	}
-	fmt.Println("Device saved successfully")
 	deviceID, err := result.LastInsertId()
 	if err != nil {
 		return Device{}, err
