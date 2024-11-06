@@ -1,0 +1,11 @@
+CREATE DATABASE IF NOT EXISTS device_store;
+
+USE device_store;
+
+CREATE TABLE IF NOT EXISTS devices (
+    id INT AUTO_INCREMENT NOT NULL UNIQUE,
+    name VARCHAR(100) NOT NULL,
+    brand VARCHAR(100) NOT NULL,
+    creation_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (name, brand)
+);
