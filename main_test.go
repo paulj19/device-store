@@ -91,36 +91,26 @@ func Test_AddDeviceHandler(t *testing.T) {
 
 func Test_ReadDeviceHandler(t *testing.T) {
 	t.Run("should return device", func(t *testing.T) {
-		deviceName := strconv.Itoa(rand.Intn(100)) + "TEST DEVICE"
+		deviceName := strconv.Itoa(rand.Intn(100000)) + "TEST DEVICE"
 		var device Device = Device{
 			Name:  deviceName,
 			Brand: "Test Brand",
 		}
-		deviceStub, err := json.Marshal(device)
-		req, err := http.NewRequest("POST", "/device", bytes.NewReader(deviceStub))
+		device, err := repository.SaveDevice(device)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		req, err := http.NewRequest("GET", "/device?id="+strconv.Itoa(device.ID), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		rr := httptest.NewRecorder()
 		handler := http.HandlerFunc(CrudDeviceHandler)
 		handler.ServeHTTP(rr, req)
-		var deviceResponse Device
-		err = json.Unmarshal(rr.Body.Bytes(), &deviceResponse)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		req, err = http.NewRequest("GET", "/device?id="+strconv.Itoa(deviceResponse.ID), nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		rr = httptest.NewRecorder()
-		handler = http.HandlerFunc(CrudDeviceHandler)
-		handler.ServeHTTP(rr, req)
 		if rr.Code != http.StatusOK {
 			t.Errorf("expected status code %d, got %d", http.StatusOK, rr.Code)
 		}
-		//extract device id from request
 		if !strings.Contains(rr.Body.String(), device.Name) {
 			t.Errorf("expected message %v, got %v", device.Name, rr.Body.String())
 		}
@@ -147,6 +137,30 @@ func Test_ReadDeviceHandler(t *testing.T) {
 		}
 		if !strings.Contains(rr.Body.String(), "Device with id 100000 not found") {
 			t.Errorf("expected message %v, got %v", "Device with id 100000 not found", rr.Body.String())
+		}
+	})
+	t.Run("should return 400 bad request", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/device?id=abc", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(CrudDeviceHandler)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected status code %d, got %d", http.StatusBadRequest, rr.Code)
+		}
+	})
+	t.Run("should return 400 bad request", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/device", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(CrudDeviceHandler)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected status code %d, got %d", http.StatusBadRequest, rr.Code)
 		}
 	})
 }
