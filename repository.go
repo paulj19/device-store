@@ -10,6 +10,8 @@ import (
 type Repository interface {
 	SaveDevice(device Device) (Device, error)
 	FindDeviceByID(id int) (Device, error)
+	FindAllDevices() ([]Device, error)
+	DeleteAllDevices()
 }
 type RepositoryImpl struct {
 	db *sql.DB
@@ -53,4 +55,40 @@ func (r RepositoryImpl) SaveDevice(device Device) (Device, error) {
 		return Device{}, err
 	}
 	return device, nil
+}
+
+func (r RepositoryImpl) FindAllDevices() ([]Device, error) {
+	query := "SELECT * FROM devices"
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devices []Device
+	for rows.Next() {
+		var device Device
+		var creationTimeRaw []byte
+		err := rows.Scan(&device.ID, &device.Name, &device.Brand, &creationTimeRaw)
+		if err != nil {
+			return nil, err
+		}
+		creationTimeStr := string(creationTimeRaw)
+		creationTime, err := time.Parse("2006-01-02 15:04:05", creationTimeStr)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing creation_time: %v", err)
+		}
+
+		device.CreationTime = creationTime
+		devices = append(devices, device)
+	}
+	return devices, nil
+}
+
+func (repository RepositoryImpl) DeleteAllDevices() {
+	query := "DELETE FROM devices"
+	_, err := repository.db.Exec(query)
+	if err != nil {
+		log.Println("Error deleting devices:", err)
+	}
 }

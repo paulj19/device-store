@@ -15,13 +15,14 @@ import (
 
 func TestMain(m *testing.M) {
 	initDB()
+
+	defer repository.DeleteAllDevices()
 	code := m.Run()
 	os.Exit(code)
 }
 
 func Test_AddDeviceHandler(t *testing.T) {
 	t.Run("should add device", func(t *testing.T) {
-
 		deviceName := strconv.Itoa(rand.Intn(100)) + "TEST DEVICE"
 		var device Device = Device{
 			Name:  deviceName,
@@ -57,11 +58,16 @@ func Test_AddDeviceHandler(t *testing.T) {
 	})
 
 	t.Run("should return 422 with message device already exists", func(t *testing.T) {
-		deviceName := strconv.Itoa(rand.Intn(100)) + "TEST DEVICE"
+		deviceName := strconv.Itoa(rand.Intn(100000)) + "TEST DEVICE"
 		var device Device = Device{
 			Name:  deviceName,
 			Brand: "Test Brand",
 		}
+		device, err := repository.SaveDevice(device)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Make another duplicate request
 		deviceStub, err := json.Marshal(device)
 		req, err := http.NewRequest("POST", "/device", bytes.NewReader(deviceStub))
 		if err != nil {
@@ -70,16 +76,6 @@ func Test_AddDeviceHandler(t *testing.T) {
 		rr := httptest.NewRecorder()
 		handler := http.HandlerFunc(CrudDeviceHandler)
 		handler.ServeHTTP(rr, req)
-
-		// Make another duplicate request
-		deviceStub, err = json.Marshal(device)
-		req, err = http.NewRequest("POST", "/device", bytes.NewReader(deviceStub))
-		if err != nil {
-			t.Fatal(err)
-		}
-		rr = httptest.NewRecorder()
-		handler = http.HandlerFunc(CrudDeviceHandler)
-		handler.ServeHTTP(rr, req)
 		if rr.Code != http.StatusUnprocessableEntity {
 			t.Errorf("expected status code %d, got %d", http.StatusUnprocessableEntity, rr.Code)
 		}
@@ -87,6 +83,7 @@ func Test_AddDeviceHandler(t *testing.T) {
 			t.Errorf("expected message %v, got %v", fmt.Sprintf("Device %v already exists", device), rr.Body.String())
 		}
 	})
+	repository.DeleteAllDevices()
 }
 
 func Test_ReadDeviceHandler(t *testing.T) {
@@ -163,4 +160,41 @@ func Test_ReadDeviceHandler(t *testing.T) {
 			t.Errorf("expected status code %d, got %d", http.StatusBadRequest, rr.Code)
 		}
 	})
+	repository.DeleteAllDevices()
+}
+
+func Test_ListDevicesHandler(t *testing.T) {
+	repository.DeleteAllDevices()
+	t.Run("should return list of devices", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			deviceName := strconv.Itoa(rand.Intn(100000)) + "TEST DEVICE"
+			var device Device = Device{
+				Name:  deviceName,
+				Brand: "Test Brand",
+			}
+			device, err := repository.SaveDevice(device)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		req, err := http.NewRequest("GET", "/list-devices", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(GetAllDevicesHandler)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status code %d, got %d", http.StatusOK, rr.Code)
+		}
+		var devices []Device
+		err = json.Unmarshal(rr.Body.Bytes(), &devices)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(devices) != 10 {
+			t.Errorf("expected 10 devices, got %d", len(devices))
+		}
+	})
+	repository.DeleteAllDevices()
 }

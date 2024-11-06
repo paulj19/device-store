@@ -22,11 +22,6 @@ type Device struct {
 
 var repository Repository
 
-func main() {
-	initDB()
-	http.HandleFunc("/device", CrudDeviceHandler)
-}
-
 func initDB() {
 	dsn := "user:password@tcp(localhost:3306)/device_store"
 	db, err := sql.Open("mysql", dsn)
@@ -49,8 +44,24 @@ func initDB() {
 	}
 }
 
-func CrudDeviceHandler(w http.ResponseWriter, r *http.Request) {
+func main() {
+	initDB()
+	http.HandleFunc("/device", CrudDeviceHandler)
+	http.HandleFunc("/list-devices", GetAllDevicesHandler)
+}
 
+func GetAllDevicesHandler(w http.ResponseWriter, r *http.Request) {
+	devices, err := repository.FindAllDevices()
+	if err != nil {
+		log.Println("Error finding devices:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(devices)
+}
+
+func CrudDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		id := r.URL.Query().Get("id")
