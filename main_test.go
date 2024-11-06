@@ -38,22 +38,27 @@ func Test_AddDeviceHandler(t *testing.T) {
 		}
 		rr := httptest.NewRecorder()
 		handler := http.HandlerFunc(CrudDeviceHandler)
-		fmt.Println("Request:", handler)
 		handler.ServeHTTP(rr, req)
+		var deviceResponse Device
+		err = json.Unmarshal(rr.Body.Bytes(), &deviceResponse)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		if rr.Code != http.StatusCreated {
 			t.Errorf("expected status code %d, got %d", http.StatusCreated, rr.Code)
 		}
-		if !strings.Contains(rr.Body.String(), deviceName) {
-			t.Errorf("expected message %v, got %v", deviceName, rr.Body.String())
+		if deviceResponse.Name != device.Name {
+			t.Errorf("expected name %v, got %v", device.Name, deviceResponse.Name)
 		}
-		if !strings.Contains(rr.Body.String(), "Test Brand") {
-			t.Errorf("expected message %v, got %v", "Test Brand", rr.Body.String())
+		if deviceResponse.Brand != device.Brand {
+			t.Errorf("expected brand %v, got %v", device.Brand, deviceResponse.Brand)
 		}
-		if !strings.Contains(rr.Body.String(), "creation_time") {
-			t.Errorf("expected message %v, got %v", "creation_time", rr.Body.String())
+		if deviceResponse.ID == 0 {
+			t.Errorf("expected id to be non zero, got %v", deviceResponse.ID)
 		}
-		if !strings.Contains(rr.Body.String(), "id") {
-			t.Errorf("expected message %v, got %v", "id", rr.Body.String())
+		if deviceResponse.CreationTime.IsZero() {
+			t.Errorf("expected creation time to be non zero, got %v", deviceResponse.CreationTime)
 		}
 	})
 
@@ -86,7 +91,7 @@ func Test_AddDeviceHandler(t *testing.T) {
 	repository.DeleteAllDevices()
 }
 
-func Test_ReadDeviceHandler(t *testing.T) {
+func Test_GetDeviceHandler(t *testing.T) {
 	t.Run("should return device", func(t *testing.T) {
 		deviceName := strconv.Itoa(rand.Intn(100000)) + "TEST DEVICE"
 		var device Device = Device{
@@ -98,31 +103,36 @@ func Test_ReadDeviceHandler(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		req, err := http.NewRequest("GET", "/device?id="+strconv.Itoa(device.ID), nil)
+		req, err := http.NewRequest("GET", "/device/"+strconv.Itoa(device.ID), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		rr := httptest.NewRecorder()
 		handler := http.HandlerFunc(CrudDeviceHandler)
 		handler.ServeHTTP(rr, req)
+		var deviceResponse Device
+		err = json.Unmarshal(rr.Body.Bytes(), &deviceResponse)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if rr.Code != http.StatusOK {
 			t.Errorf("expected status code %d, got %d", http.StatusOK, rr.Code)
 		}
-		if !strings.Contains(rr.Body.String(), device.Name) {
-			t.Errorf("expected message %v, got %v", device.Name, rr.Body.String())
+		if deviceResponse.Name != device.Name {
+			t.Errorf("expected name %v, got %v", device.Name, deviceResponse.Name)
 		}
-		if !strings.Contains(rr.Body.String(), "Test Brand") {
-			t.Errorf("expected message %v, got %v", "Test Brand", rr.Body.String())
+		if deviceResponse.Brand != device.Brand {
+			t.Errorf("expected brand %v, got %v", device.Brand, deviceResponse.Brand)
 		}
-		if !strings.Contains(rr.Body.String(), "creation_time") {
-			t.Errorf("expected message %v, got %v", "creation_time", rr.Body.String())
+		if deviceResponse.ID != device.ID {
+			t.Errorf("expected id %v, got %v", device.ID, deviceResponse.ID)
 		}
-		if !strings.Contains(rr.Body.String(), "id") {
-			t.Errorf("expected message %v, got %v", "id", rr.Body.String())
+		if deviceResponse.CreationTime.IsZero() {
+			t.Errorf("expected creation time to be non zero, got %v", deviceResponse.CreationTime)
 		}
 	})
 	t.Run("should return 404 not found", func(t *testing.T) {
-		req, err := http.NewRequest("GET", "/device?id=100000", nil)
+		req, err := http.NewRequest("GET", "/device/100000", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -137,7 +147,7 @@ func Test_ReadDeviceHandler(t *testing.T) {
 		}
 	})
 	t.Run("should return 400 bad request", func(t *testing.T) {
-		req, err := http.NewRequest("GET", "/device?id=abc", nil)
+		req, err := http.NewRequest("GET", "/device/abc", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -194,6 +204,183 @@ func Test_ListDevicesHandler(t *testing.T) {
 		}
 		if len(devices) != 10 {
 			t.Errorf("expected 10 devices, got %d", len(devices))
+		}
+		repository.DeleteAllDevices()
+	})
+	t.Run("should return empty list of devices", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/list-devices", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(GetAllDevicesHandler)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status code %d, got %d", http.StatusOK, rr.Code)
+		}
+		var devices []Device
+		err = json.Unmarshal(rr.Body.Bytes(), &devices)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(devices) != 0 {
+			t.Errorf("expected 0 devices, got %d", len(devices))
+		}
+	})
+
+	repository.DeleteAllDevices()
+}
+
+func Test_UpdateDevice(t *testing.T) {
+	t.Run("should update device", func(t *testing.T) {
+		deviceName := strconv.Itoa(rand.Intn(100000)) + "TEST DEVICE"
+		var device Device = Device{
+			Name:  deviceName,
+			Brand: "Test Brand",
+		}
+		device, err := repository.SaveDevice(device)
+		if err != nil {
+			t.Fatal(err)
+		}
+		device.Name = "Updated Name"
+		device.Brand = "Updated Brand"
+		deviceStub, err := json.Marshal(device)
+		req, err := http.NewRequest("PUT", "/device/"+strconv.Itoa(device.ID), bytes.NewReader(deviceStub))
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(CrudDeviceHandler)
+		handler.ServeHTTP(rr, req)
+
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status code %d, got %d", http.StatusOK, rr.Code)
+		}
+
+		var deviceResponse Device
+		err = json.Unmarshal(rr.Body.Bytes(), &deviceResponse)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if deviceResponse.Name != device.Name {
+			t.Errorf("expected name %v, got %v", device.Name, deviceResponse.Name)
+		}
+		if deviceResponse.Brand != device.Brand {
+			t.Errorf("expected brand %v, got %v", device.Brand, deviceResponse.Brand)
+		}
+		if deviceResponse.ID != device.ID {
+			t.Errorf("expected id %v, got %v", device.ID, deviceResponse.ID)
+		}
+		if deviceResponse.CreationTime.IsZero() {
+			t.Errorf("expected creation time to be non zero, got %v", deviceResponse.CreationTime)
+		}
+	})
+
+	t.Run("should return 404 not found", func(t *testing.T) {
+		req, err := http.NewRequest("PUT", "/device/100000", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(CrudDeviceHandler)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusNotFound {
+			t.Errorf("expected status code %d, got %d", http.StatusNotFound, rr.Code)
+		}
+	})
+	repository.DeleteAllDevices()
+}
+
+func Test_DeleteDevice(t *testing.T) {
+	t.Run("should delete device", func(t *testing.T) {
+		deviceName := strconv.Itoa(rand.Intn(100000)) + "TEST DEVICE"
+		var device Device = Device{
+			Name:  deviceName,
+			Brand: "Test Brand",
+		}
+		device, err := repository.SaveDevice(device)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req, err := http.NewRequest("DELETE", "/device/"+strconv.Itoa(device.ID), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(CrudDeviceHandler)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusNoContent {
+			t.Errorf("expected status code %d, got %d", http.StatusOK, rr.Code)
+		}
+		_, err = repository.FindDeviceByID(device.ID)
+		if err == nil || !strings.Contains(err.Error(), "no rows in result set") {
+			t.Errorf("expected device to be deleted, got %v", err)
+		}
+	})
+
+	t.Run("should return 404 not found", func(t *testing.T) {
+		req, err := http.NewRequest("DELETE", "/device/1111111", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(CrudDeviceHandler)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusNotFound {
+			t.Errorf("expected status code %d, got %d", http.StatusNotFound, rr.Code)
+		}
+	})
+	repository.DeleteAllDevices()
+}
+
+func Test_SearchDeviceHandler(t *testing.T) {
+	t.Run("should search device", func(t *testing.T) {
+		for i := 0; i < 10; i++ {
+			var device Device = Device{
+				Name:  strconv.Itoa(rand.Intn(100000)) + "TEST DEVICE",
+				Brand: "Test Brand",
+			}
+			device, err := repository.SaveDevice(device)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		req, err := http.NewRequest("GET", "/search-device?brand=TEST DEVICE", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(GetAllDevicesHandler)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Errorf("expected status code %d, got %d", http.StatusOK, rr.Code)
+		}
+		var devices []Device
+		err = json.Unmarshal(rr.Body.Bytes(), &devices)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(devices) != 10 {
+			t.Errorf("expected 10 devices, got %d", len(devices))
+		}
+		repository.DeleteAllDevices()
+	})
+
+	t.Run("should return 404 not found", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/search-device?brand=ABC", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(SearchDeviceHandler)
+		handler.ServeHTTP(rr, req)
+		var devices []Device
+		err = json.Unmarshal(rr.Body.Bytes(), &devices)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(devices) != 0 {
+			t.Errorf("expected 0 devices, got %d", len(devices))
 		}
 	})
 	repository.DeleteAllDevices()

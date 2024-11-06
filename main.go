@@ -48,6 +48,7 @@ func main() {
 	initDB()
 	http.HandleFunc("/device", CrudDeviceHandler)
 	http.HandleFunc("/list-devices", GetAllDevicesHandler)
+	http.HandleFunc("/search-device", SearchDeviceHandler)
 }
 
 func GetAllDevicesHandler(w http.ResponseWriter, r *http.Request) {
@@ -64,10 +65,10 @@ func GetAllDevicesHandler(w http.ResponseWriter, r *http.Request) {
 func CrudDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
-		id := r.URL.Query().Get("id")
-		deviceID, err := strconv.Atoi(id)
+		path := strings.TrimPrefix(r.URL.Path, "/device/")
+		deviceID, err := strconv.Atoi(path)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
+			http.Error(w, "Invalid device ID", http.StatusBadRequest)
 			return
 		}
 		device, err := repository.FindDeviceByID(deviceID)
@@ -106,5 +107,80 @@ func CrudDeviceHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(newDevice)
+
+	case http.MethodPut:
+		path := strings.TrimPrefix(r.URL.Path, "/device/")
+		deviceID, err := strconv.Atoi(path)
+		if err != nil {
+			http.Error(w, "Invalid device ID", http.StatusBadRequest)
+			return
+		}
+
+		deviceFromDB, err := repository.FindDeviceByID(deviceID)
+		if err != nil {
+			if strings.Contains(err.Error(), "no rows in result set") {
+				http.Error(w, fmt.Sprintf("Device with id %v not found", deviceID), http.StatusNotFound)
+				return
+			}
+			log.Println("Error finding device:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		var deviceDTO Device
+		err = json.NewDecoder(r.Body).Decode(&deviceDTO)
+		if err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		deviceFromDB.Name = deviceDTO.Name
+		deviceFromDB.Brand = deviceDTO.Brand
+
+		_, err = repository.UpdateDevice(deviceFromDB)
+		if err != nil {
+			log.Println("Error updating device:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(deviceFromDB)
+
+	case http.MethodDelete:
+		path := strings.TrimPrefix(r.URL.Path, "/device/")
+		deviceID, err := strconv.Atoi(path)
+		if err != nil {
+			http.Error(w, "Invalid device ID", http.StatusBadRequest)
+			return
+		}
+
+		err = repository.DeleteDevice(deviceID)
+		if err != nil {
+			if strings.Contains(err.Error(), "no rows in result set") {
+				http.Error(w, fmt.Sprintf("Device with id %v not found", deviceID), http.StatusNotFound)
+				return
+			}
+			log.Println("Error deleting device:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
+}
+
+func SearchDeviceHandler(w http.ResponseWriter, r *http.Request) {
+	brand := r.URL.Query().Get("brand")
+	if brand == "" {
+		http.Error(w, "Brand is required", http.StatusBadRequest)
+		return
+	}
+
+	devices, err := repository.FindDeviceByBrand(brand)
+	if err != nil {
+		log.Println("Error finding devices:", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(devices)
 }
