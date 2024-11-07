@@ -2,8 +2,7 @@
 
 Device Store is a simple RESTful API for managing devices. It allows you to create, read, update, and delete devices in a MySQL database.
 
-## Notes for the reviewer
- ### Design decisions:
+### Design decisions:
    - I used relational DB because it seemed like a natural choice given the requirements, device name had clear direct relation with brand and this makes DB operations efficient
    - Device name and brand cannot be null or empty and request to create or set them so will fail. This ensures data consistency
    - combination of name and brand is unique and is set a composite key, this ensures no duplicates
