@@ -108,7 +108,7 @@ func (r RepositoryImpl) DeleteDevice(id int) error {
 	return nil
 }
 
-// helper function just for tests
+// DeleteAllDevices helper function just for tests
 func (r RepositoryImpl) DeleteAllDevices() {
 	query := "DELETE FROM devices"
 	_, err := r.db.Exec(query)

@@ -75,11 +75,11 @@ func CrudDeviceHandler(w http.ResponseWriter, r *http.Request) {
 
 		newDevice, err = repository.SaveDevice(newDevice)
 		if err != nil {
-			log.Printf("Error adding device: %v", err)
 			if strings.Contains(err.Error(), "Error 1062 (23000): Duplicate entry") {
 				http.Error(w, fmt.Sprintf("Device %v already exists", newDevice), http.StatusUnprocessableEntity)
 				return
 			}
+			log.Printf("Error adding device: %v", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}

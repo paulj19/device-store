@@ -248,7 +248,6 @@ func Test_ListDevicesHandler(t *testing.T) {
 			t.Errorf("expected 0 devices, got %d", len(devices))
 		}
 	})
-
 	repository.DeleteAllDevices()
 }
 
