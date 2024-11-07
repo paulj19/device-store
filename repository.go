@@ -8,7 +8,7 @@ import (
 type Repository interface {
 	SaveDevice(device Device) (Device, error)
 	FindDeviceByID(id int) (Device, error)
-	FindDeviceByBrand(brand string) ([]Device, error)
+	FindDevicesByBrand(brand string) ([]Device, error)
 	FindAllDevices() ([]Device, error)
 	UpdateDevice(device Device) (Device, error)
 	DeleteDevice(id int) error
@@ -46,9 +46,9 @@ func (r RepositoryImpl) SaveDevice(device Device) (Device, error) {
 	return device, nil
 }
 
-func (respository RepositoryImpl) FindDeviceByBrand(brand string) ([]Device, error) {
+func (r RepositoryImpl) FindDevicesByBrand(brand string) ([]Device, error) {
 	query := "SELECT * FROM devices WHERE brand = ?"
-	rows, err := respository.db.Query(query, brand)
+	rows, err := r.db.Query(query, brand)
 	if err != nil {
 		return nil, err
 	}
@@ -109,9 +109,9 @@ func (r RepositoryImpl) DeleteDevice(id int) error {
 }
 
 // helper function just for tests
-func (repository RepositoryImpl) DeleteAllDevices() {
+func (r RepositoryImpl) DeleteAllDevices() {
 	query := "DELETE FROM devices"
-	_, err := repository.db.Exec(query)
+	_, err := r.db.Exec(query)
 	if err != nil {
 		log.Fatal("Error deleting devices:", err)
 	}

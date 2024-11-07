@@ -46,21 +46,9 @@ func initDB() {
 func main() {
 	initDB()
 	http.HandleFunc("/device/", CrudDeviceHandler)
-	http.HandleFunc("/devices", GetAllDevicesHandler)
-	http.HandleFunc("/search-device", SearchDeviceHandler)
+	http.HandleFunc("/devices", CrudDevicesHandler)
 	log.Println("starting server on :8080")
 	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func GetAllDevicesHandler(w http.ResponseWriter, r *http.Request) {
-	devices, err := repository.FindAllDevices()
-	if err != nil {
-		log.Printf("Error finding devices: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(devices)
 }
 
 func CrudDeviceHandler(w http.ResponseWriter, r *http.Request) {
@@ -151,14 +139,17 @@ func CrudDeviceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SearchDeviceHandler(w http.ResponseWriter, r *http.Request) {
+func CrudDevicesHandler(w http.ResponseWriter, r *http.Request) {
 	brand := r.URL.Query().Get("brand")
+	var devices []Device
+	var err error
+
 	if brand == "" {
-		http.Error(w, "Brand is required", http.StatusBadRequest)
-		return
+		devices, err = repository.FindAllDevices()
+	} else {
+		devices, err = repository.FindDevicesByBrand(brand)
 	}
 
-	devices, err := repository.FindDeviceByBrand(brand)
 	if err != nil {
 		log.Printf("Error finding devices: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -169,7 +160,6 @@ func SearchDeviceHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetDeviceById(w http.ResponseWriter, r *http.Request) (Device, error) {
-
 	path := strings.TrimPrefix(r.URL.Path, "/device/")
 	deviceID, err := strconv.Atoi(path)
 	if err != nil {

@@ -208,12 +208,12 @@ func Test_ListDevicesHandler(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		req, err := http.NewRequest("GET", "/list-devices", nil)
+		req, err := http.NewRequest("GET", "/devices", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(GetAllDevicesHandler)
+		handler := http.HandlerFunc(CrudDevicesHandler)
 		handler.ServeHTTP(rr, req)
 		if rr.Code != http.StatusOK {
 			t.Errorf("expected status code %d, got %d", http.StatusOK, rr.Code)
@@ -229,12 +229,12 @@ func Test_ListDevicesHandler(t *testing.T) {
 		repository.DeleteAllDevices()
 	})
 	t.Run("should return empty list of devices", func(t *testing.T) {
-		req, err := http.NewRequest("GET", "/list-devices", nil)
+		req, err := http.NewRequest("GET", "/devices", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(GetAllDevicesHandler)
+		handler := http.HandlerFunc(CrudDevicesHandler)
 		handler.ServeHTTP(rr, req)
 		if rr.Code != http.StatusOK {
 			t.Errorf("expected status code %d, got %d", http.StatusOK, rr.Code)
@@ -393,12 +393,12 @@ func Test_SearchDeviceHandler(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		req, err := http.NewRequest("GET", "/search-device?brand=TEST DEVICE", nil)
+		req, err := http.NewRequest("GET", "/devices?brand=TEST Brand", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(GetAllDevicesHandler)
+		handler := http.HandlerFunc(CrudDevicesHandler)
 		handler.ServeHTTP(rr, req)
 		if rr.Code != http.StatusOK {
 			t.Errorf("expected status code %d, got %d", http.StatusOK, rr.Code)
@@ -415,12 +415,12 @@ func Test_SearchDeviceHandler(t *testing.T) {
 	})
 
 	t.Run("should return 404 not found", func(t *testing.T) {
-		req, err := http.NewRequest("GET", "/search-device?brand=ABC", nil)
+		req, err := http.NewRequest("GET", "/devices?brand=ABC", nil)
 		if err != nil {
 			t.Fatal(err)
 		}
 		rr := httptest.NewRecorder()
-		handler := http.HandlerFunc(SearchDeviceHandler)
+		handler := http.HandlerFunc(CrudDevicesHandler)
 		handler.ServeHTTP(rr, req)
 		var devices []Device
 		err = json.Unmarshal(rr.Body.Bytes(), &devices)
