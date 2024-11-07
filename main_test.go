@@ -88,6 +88,27 @@ func Test_AddDeviceHandler(t *testing.T) {
 			t.Errorf("expected message %v, got %v", fmt.Sprintf("Device %v already exists", device), rr.Body.String())
 		}
 	})
+	t.Run("should return 400 bad request for emtpy name or brand", func(t *testing.T) {
+		var device Device = Device{
+			Name:  "",
+			Brand: "Test Brand",
+		}
+		deviceStub, err := json.Marshal(device)
+		req, err := http.NewRequest("POST", "/device", bytes.NewReader(deviceStub))
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(CrudDeviceHandler)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected status code %d, got %d", http.StatusBadRequest, rr.Code)
+		}
+		if !strings.Contains(rr.Body.String(), "Name and brand are required") {
+			t.Errorf("expected message %v, got %v", "Name and brand are required", rr.Body.String())
+		}
+	})
+
 	repository.DeleteAllDevices()
 }
 
@@ -286,6 +307,33 @@ func Test_UpdateDevice(t *testing.T) {
 		handler.ServeHTTP(rr, req)
 		if rr.Code != http.StatusNotFound {
 			t.Errorf("expected status code %d, got %d", http.StatusNotFound, rr.Code)
+		}
+	})
+
+	t.Run("should return 400 bad request for emtpy name or brand", func(t *testing.T) {
+		var device Device = Device{
+			Name:  "Test Device",
+			Brand: "Test Brand",
+		}
+		device, err := repository.SaveDevice(device)
+		if err != nil {
+			t.Fatal(err)
+		}
+		device.Name = ""
+		device.Brand = ""
+		deviceStub, err := json.Marshal(device)
+		req, err := http.NewRequest("PUT", "/device/"+strconv.Itoa(device.ID), bytes.NewReader(deviceStub))
+		if err != nil {
+			t.Fatal(err)
+		}
+		rr := httptest.NewRecorder()
+		handler := http.HandlerFunc(CrudDeviceHandler)
+		handler.ServeHTTP(rr, req)
+		if rr.Code != http.StatusBadRequest {
+			t.Errorf("expected status code %d, got %d", http.StatusBadRequest, rr.Code)
+		}
+		if !strings.Contains(rr.Body.String(), "Name and brand are required") {
+			t.Errorf("expected message %v, got %v", "Name and brand are required", rr.Body.String())
 		}
 	})
 	repository.DeleteAllDevices()
